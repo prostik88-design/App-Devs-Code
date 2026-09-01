@@ -44,7 +44,7 @@ APP_NAME="Gradle"
 APP_BASE_NAME=`basename "$0"`
 
 # Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
-DEFAULT_JVM_OPTS='\" -Xmx64m -Xms64m "'
+DEFAULT_JVM_OPTS='-Xmx64m -Xms64m'
 
 # Use the maximum available, or set MAX_FD != -1 to use that value.
 MAX_FD="maximum"
@@ -103,7 +103,7 @@ location of your Java installation."
 fi
 
 # Increase the maximum file descriptors if we can.
-if ! "$cygpath" -m .> /dev/null 2>&1 ; then
+if ! "$cygpath" -m . > /dev/null 2>&1 ; then
     MAX_FD_LIMIT=`ulimit -H -n`
     if [ $? -eq 0 ] ; then
         if [ "$MAX_FD_LIMIT" != "unlimited" ] ; then
@@ -114,7 +114,7 @@ fi
 
 # For Darwin, add options to specify how the application appears in the dock
 if $IS_NATIVE; then
-    GRADLE_OPTS="$GRADLE_OPTS \"-Xdock:name=$APP_NAME\" \"-Xdock:icon=$APP_HOME/media/gradle.icns\""
+    GRADLE_OPTS="$GRADLE_OPTS -Xdock:name=$APP_NAME -Xdock:icon=$APP_HOME/media/gradle.icns"
 fi
 
 # For Cygwin or MSYS, switch paths to Windows format before running java
@@ -122,13 +122,6 @@ if [ "$IS_CYGWIN" = "true" ] -o [ "$IS_MSYS" = "true" ] ; then
     APP_HOME=`cygpath --path --mixed "$APP_HOME"`
     CLASSPATH=`cygpath --path --mixed "$CLASSPATH"`
     JAVACMD=`cygpath --windows "$JAVACMD"`
-fi
-
-# We build the pattern for arguments to be converted via cygpath
-PATTERN="(^($|/)|(^|/)([^()]|\(([^()]|\([^()]*\))*\))*$)"
-# Add a user-defined CLASSPATH variable if needed
-if [ -n "$CLASSPATH" ] ; then
-    CLASSPATH=$CLASSPATH
 fi
 
 # For Mingw, ensure paths are in MSYS format before anything is touched
@@ -147,7 +140,4 @@ if $IS_CYGWIN ; then
         GRADLE_USER_HOME="`cygpath --windows "$GRADLE_USER_HOME"`"
 fi
 
-exec "$JAVACMD" $DEFAULT_JVM_OPTS $JAVA_OPTS $GRADLE_OPTS \
-    -classpath "$CLASSPATH" \
-    org.gradle.wrapper.GradleWrapperMain \
-    "$@"
+exec "$JAVACMD" $DEFAULT_JVM_OPTS $JAVA_OPTS $GRADLE_OPTS -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"
