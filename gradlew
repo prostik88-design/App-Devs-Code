@@ -64,7 +64,7 @@ die () {
 IS_CYGWIN=false
 IS_MSYS=false
 IS_MINGW=false
-IS_Nnative=false
+IS_NATIVE=false
 case "`uname`" in
   CYGWIN* )
     IS_CYGWIN=true
@@ -78,7 +78,7 @@ case "`uname`" in
   MINGW* )
     IS_MINGW=true
     ;;
-ESAC
+esac
 
 # Determine the Java command to use to start the JVM.
 if [ -n "$JAVA_HOME" ] ; then
@@ -113,12 +113,12 @@ if ! "$cygpath" -m .> /dev/null 2>&1 ; then
 fi
 
 # For Darwin, add options to specify how the application appears in the dock
-if $darwin; then
+if $IS_NATIVE; then
     GRADLE_OPTS="$GRADLE_OPTS \"-Xdock:name=$APP_NAME\" \"-Xdock:icon=$APP_HOME/media/gradle.icns\""
 fi
 
 # For Cygwin or MSYS, switch paths to Windows format before running java
-if [ "$CYGWIN" = "true" ] -o [ "$MSYS" = "true" ] ; then
+if [ "$IS_CYGWIN" = "true" ] -o [ "$IS_MSYS" = "true" ] ; then
     APP_HOME=`cygpath --path --mixed "$APP_HOME"`
     CLASSPATH=`cygpath --path --mixed "$CLASSPATH"`
     JAVACMD=`cygpath --windows "$JAVACMD"`
@@ -130,20 +130,6 @@ PATTERN="(^($|/)|(^|/)([^()]|\(([^()]|\([^()]*\))*\))*$)"
 if [ -n "$CLASSPATH" ] ; then
     CLASSPATH=$CLASSPATH
 fi
-
-# Determine the OS arch for the wrapper JAR to download
-OSARCH=`uname -m`
-case "$OSARCH" in
-  x86_64 )
-    OSARCH="x86_64"
-    ;;
-  i686 )
-    OSARCH="i686"
-    ;;
-  aarch64 )
-    OSARCH="aarch64"
-    ;;
-esac
 
 # For Mingw, ensure paths are in MSYS format before anything is touched
 if $IS_MINGW ; then
