@@ -1,0 +1,8 @@
+{
+  "name": "Devs Codes",
+  "description": "AI Software Engineer and Developer Assistant for Android",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
