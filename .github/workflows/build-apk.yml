@@ -4,39 +4,60 @@ on:
   push:
     branches:
       - main
+      - master
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
+    name: 🚀 Build Debug APK
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: 📥 Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Java
+      - name: ☕ Set up Java 17
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
+          distribution: 'temurin'
           java-version: '17'
-          cache: gradle
+          cache: 'gradle'
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v6
+      - name: 🐘 Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
           build-scan-publish: false
 
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
+      - name: 🔑 Set up Environment
+        run: |
+          if [ -n "${{ secrets.GEMINI_API_KEY }}" ]; then
+            echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" > .env
+          elif [ -f .env.example ]; then
+            cp .env.example .env
+          else
+            echo "GEMINI_API_KEY=" > .env
+          fi
 
-      - name: Build debug APK
+      - name: 🛠️ Make gradlew executable
+        run: |
+          if [ -f ./gradlew ]; then
+            chmod +x ./gradlew
+          else
+            gradle wrapper
+            chmod +x ./gradlew
+          fi
+
+      - name: 📱 Build debug APK
         run: ./gradlew assembleDebug --stacktrace --warning-mode all
-      
-      - name: Show Gradle warnings
-        run: ./gradlew assembleDebug --warning-mode all --stacktrace
 
-      - name: Upload APK
+      - name: 📤 Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
           path: app/build/outputs/apk/debug/*.apk
+          retention-days: 14
+          if-no-files-found: error
