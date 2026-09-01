@@ -1,11 +1,15 @@
 package com.example.ui.screens.generator
 
 import android.app.Application
+import android.content.Context
+import android.net.Uri
+import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.preferences.UserPreferencesRepository
 import com.example.data.repository.DevsCodeRepository
 import com.example.domain.model.AiMode
+import com.example.util.ProjectExportUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -116,6 +120,55 @@ class AppGeneratorViewModel(application: Application) : AndroidViewModel(applica
                     errorMessage = "Не удалось сохранить проект: ${e.localizedMessage}"
                 )
             }
+        }
+    }
+
+    /**
+     * Exports a preset template (such as Android, iOS, UI, Expense) directly to a ZIP file at the provided SAF Uri.
+     */
+    fun exportPresetTemplateToZip(context: Context, templateKey: String, uri: Uri) {
+        viewModelScope.launch {
+            try {
+                val files = ProjectExportUtils.getTemplateFiles(templateKey)
+                ProjectExportUtils.exportTemplateToZipUri(
+                    context = context,
+                    uri = uri,
+                    title = "Devs Code — $templateKey Template",
+                    description = "Сгенерированный шаблон $templateKey с исходным кодом и архитектурой.",
+                    files = files
+                )
+            } catch (e: Exception) {
+                Toast.makeText(context, "Ошибка экспорта шаблона: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    /**
+     * Exports the created project (from Room) to the provided SAF Uri as a ZIP file.
+     */
+    fun exportCreatedProjectToZip(context: Context, projectId: Long, uri: Uri) {
+        viewModelScope.launch {
+            try {
+                val project = repository.getProjectById(projectId) ?: return@launch
+                val files = repository.getFilesListForProject(projectId)
+                context.contentResolver.openOutputStream(uri)?.use { os ->
+                    ProjectExportUtils.writeProjectZip(project, files, os)
+                }
+                Toast.makeText(context, "Архив проекта «${project.name}.zip» успешно сохранен на устройство!", Toast.LENGTH_LONG).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, "Ошибка сохранения проекта: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    /**
+     * Shares the created project as a ZIP file.
+     */
+    fun shareCreatedProjectZip(context: Context, projectId: Long) {
+        viewModelScope.launch {
+            val project = repository.getProjectById(projectId) ?: return@launch
+            val files = repository.getFilesListForProject(projectId)
+            ProjectExportUtils.shareProjectAsZip(context, project, files)
         }
     }
 }

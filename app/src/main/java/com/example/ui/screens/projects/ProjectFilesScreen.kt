@@ -119,6 +119,15 @@ fun ProjectFilesScreen(
         }
     }
 
+    // SAF Export ZIP Launcher
+    val exportZipLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/zip")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            viewModel.exportProjectToZipUri(context, projectId, uri)
+        }
+    }
+
     val project = uiState.selectedProject
     val files = uiState.projectFiles
 
@@ -152,8 +161,14 @@ fun ProjectFilesScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { 
+                        val defaultName = "${project?.name ?: "project"}.zip"
+                        exportZipLauncher.launch(defaultName) 
+                    }) {
+                        Icon(Icons.Default.FolderZip, contentDescription = "Экспорт проекта в ZIP", tint = NeonCyan)
+                    }
                     IconButton(onClick = { openSafFileLauncher.launch(arrayOf("*/*")) }) {
-                        Icon(Icons.Default.DriveFolderUpload, contentDescription = "Импорт SAF файла", tint = NeonCyan)
+                        Icon(Icons.Default.DriveFolderUpload, contentDescription = "Импорт SAF файла")
                     }
                     IconButton(onClick = { showNewFileDialog = true }) {
                         Icon(Icons.Default.Add, contentDescription = "Создать файл")

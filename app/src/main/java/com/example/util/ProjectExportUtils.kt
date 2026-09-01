@@ -77,6 +77,496 @@ object ProjectExportUtils {
     }
 
     /**
+     * Builds and writes a clean ZIP archive of an in-memory template / UI design to the provided OutputStream.
+     */
+    suspend fun writeTemplateZip(
+        title: String,
+        description: String,
+        files: List<Pair<String, String>>,
+        outputStream: OutputStream
+    ) = withContext(Dispatchers.IO) {
+        ZipOutputStream(outputStream).use { zipOut ->
+            val hasReadme = files.any { it.first.equals("README.md", ignoreCase = true) }
+
+            for ((path, content) in files) {
+                val cleanPath = path.trimStart('/')
+                val cleanContent = sanitizeContent(content)
+                val entry = ZipEntry(cleanPath)
+                zipOut.putNextEntry(entry)
+                zipOut.write(cleanContent.toByteArray(Charsets.UTF_8))
+                zipOut.closeEntry()
+            }
+
+            if (!hasReadme) {
+                val readme = buildString {
+                    appendLine("# $title")
+                    appendLine()
+                    if (description.isNotBlank()) {
+                        appendLine(description)
+                        appendLine()
+                    }
+                    appendLine("## 📁 Структура шаблона (${files.size} файлов):")
+                    files.forEach { (p, _) ->
+                        appendLine("- `$p`")
+                    }
+                    appendLine()
+                    appendLine("---")
+                    appendLine("⚡ *Сгенерировано и экспортировано с помощью **Devs Code** — Mobile AI Software Engineer*")
+                }
+                val entry = ZipEntry("README.md")
+                zipOut.putNextEntry(entry)
+                zipOut.write(readme.toByteArray(Charsets.UTF_8))
+                zipOut.closeEntry()
+            }
+        }
+    }
+
+    /**
+     * Generates a rich set of starter code and UI designs for standard templates.
+     */
+    fun getTemplateFiles(templateKey: String): List<Pair<String, String>> {
+        return when (templateKey.lowercase()) {
+            "android" -> listOf(
+                "build.gradle.kts" to """
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.google.devtools.ksp)
+}
+
+android {
+    namespace = "com.devscode.template"
+    compileSdk = 35
+
+    defaultConfig {
+        applicationId = "com.devscode.template"
+        minSdk = 24
+        targetSdk = 35
+        versionCode = 1
+        versionName = "1.0"
+    }
+
+    buildFeatures {
+        compose = true
+    }
+}
+""".trimIndent(),
+                "app/src/main/AndroidManifest.xml" to """
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="DevsCode App"
+        android:theme="@style/Theme.DevsCode">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:theme="@style/Theme.DevsCode">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
+""".trimIndent(),
+                "app/src/main/java/com/devscode/template/MainActivity.kt" to """
+package com.devscode.template
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Modifier
+import com.devscode.template.ui.screens.HomeScreen
+import com.devscode.template.ui.theme.DevsCodeTheme
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        setContent {
+            DevsCodeTheme {
+                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                    HomeScreen()
+                }
+            }
+        }
+    }
+}
+""".trimIndent(),
+                "app/src/main/java/com/devscode/template/ui/screens/HomeScreen.kt" to """
+package com.devscode.template.ui.screens
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HomeScreen() {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Devs Code Android App", fontWeight = FontWeight.Bold) },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = { /* Add Action */ }) {
+                Icon(Icons.Default.Add, contentDescription = "Добавить")
+            }
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Code, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Jetpack Compose + Clean Architecture", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Готовый шаблон Android-приложения с Material 3, ViewModel, Room Database и Coroutines Flow.")
+                    }
+                }
+            }
+        }
+    }
+}
+""".trimIndent(),
+                "app/src/main/java/com/devscode/template/ui/theme/Theme.kt" to """
+package com.devscode.template.ui.theme
+
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
+
+private val DarkColorScheme = darkColorScheme(
+    primary = Color(0xFF00E5FF),
+    secondary = Color(0xFF10B981),
+    background = Color(0xFF0B0F19),
+    surface = Color(0xFF111827)
+)
+
+private val LightColorScheme = lightColorScheme(
+    primary = Color(0xFF0284C7),
+    secondary = Color(0xFF059669),
+    background = Color(0xFFF8FAFC),
+    surface = Color(0xFFFFFFFF)
+)
+
+@Composable
+fun DevsCodeTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
+    val colors = if (darkTheme) DarkColorScheme else LightColorScheme
+    MaterialTheme(colorScheme = colors, content = content)
+}
+""".trimIndent(),
+                "README.md" to """
+# Devs Code — Android Native Template
+
+Полноценный шаблон Android-приложения на Kotlin с Jetpack Compose, Material 3 и Clean Architecture.
+
+## 🚀 Стек:
+- Kotlin 2.2
+- Jetpack Compose M3
+- AndroidX Lifecycle & Navigation
+- Coroutines & Flow
+""".trimIndent()
+            )
+            "ios" -> listOf(
+                "App/DevsCodeApp.swift" to """
+import SwiftUI
+
+@main
+struct DevsCodeApp: App {
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+        }
+    }
+}
+""".trimIndent(),
+                "App/Views/ContentView.swift" to """
+import SwiftUI
+
+struct ContentView: View {
+    @StateObject private var viewModel = ContentViewModel()
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 16) {
+                    CardView(
+                        title: "SwiftUI + MVVM",
+                        subtitle: "Шаблон iOS приложения с поддержкой iOS 17+, Swift 6 и современным дизайном.",
+                        icon: "swift"
+                    )
+                }
+                .padding()
+            }
+            .navigationTitle("Devs Code iOS")
+            .toolbar {
+                Button(action: { viewModel.addItem() }) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.title2)
+                }
+            }
+        }
+    }
+}
+""".trimIndent(),
+                "App/Views/Components/CardView.swift" to """
+import SwiftUI
+
+struct CardView: View {
+    let title: String
+    let subtitle: String
+    let icon: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Image(systemName: icon)
+                    .font(.headline)
+                    .foregroundColor(.cyan)
+                Text(title)
+                    .font(.headline)
+                    .fontWeight(.bold)
+            }
+            Text(subtitle)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(uiColor: .secondarySystemBackground))
+        .cornerRadius(14)
+    }
+}
+""".trimIndent(),
+                "App/ViewModels/ContentViewModel.swift" to """
+import Foundation
+import Combine
+
+class ContentViewModel: ObservableObject {
+    @Published var items: [String] = []
+
+    func addItem() {
+        items.append("Элемент \(items.count + 1)")
+    }
+}
+""".trimIndent(),
+                "README.md" to """
+# Devs Code — iOS SwiftUI Template
+
+Современный шаблон iOS-приложения на Swift 6 и SwiftUI с архитектурой MVVM.
+""".trimIndent()
+            )
+            "ui" -> listOf(
+                "ui/theme/Color.kt" to """
+package com.devscode.ui.theme
+
+import androidx.compose.ui.graphics.Color
+
+val NeonCyan = Color(0xFF00E5FF)
+val EmeraldGreen = Color(0xFF10B981)
+val NeonPurple = Color(0xFFA855F7)
+val DarkBackground = Color(0xFF0B0F19)
+val DarkSurface = Color(0xFF111827)
+val DarkSurfaceCard = Color(0xFF1F2937)
+val TextPrimary = Color(0xFFF9FAFB)
+val TextSecondary = Color(0xFF9CA3AF)
+""".trimIndent(),
+                "ui/components/GlowButton.kt" to """
+package com.devscode.ui.components
+
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.devscode.ui.theme.EmeraldGreen
+import com.devscode.ui.theme.NeonCyan
+
+@Composable
+fun GlowButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(52.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+        contentPadding = PaddingValues()
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(NeonCyan, EmeraldGreen)
+                    ),
+                    shape = RoundedCornerShape(14.dp)
+                ),
+            contentAlignment = androidx.compose.ui.Alignment.Center
+        ) {
+            Text(
+                text = text,
+                color = Color.Black,
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleSmall
+            )
+        }
+    }
+}
+""".trimIndent(),
+                "ui/components/GlassmorphicCard.kt" to """
+package com.devscode.ui.components
+
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import com.devscode.ui.theme.DarkSurfaceCard
+
+@Composable
+fun GlassmorphicCard(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp),
+        color = DarkSurfaceCard.copy(alpha = 0.85f),
+        tonalElevation = 4.dp
+    ) {
+        Column(modifier = Modifier.padding(16.dp), content = content)
+    }
+}
+""".trimIndent(),
+                "ui/screens/UiCatalogScreen.kt" to """
+package com.devscode.ui.screens
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.devscode.ui.components.GlassmorphicCard
+import com.devscode.ui.components.GlowButton
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun UiCatalogScreen() {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("UI Design System & Components", fontWeight = FontWeight.Bold) }
+            )
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                GlassmorphicCard {
+                    Text("Glassmorphism Card", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text("Полупрозрачная стеклянная карточка с границей и скруглением 16dp.")
+                }
+            }
+            item {
+                GlowButton(
+                    text = "Интерактивная кнопка с градиентом",
+                    onClick = {}
+                )
+            }
+        }
+    }
+}
+""".trimIndent(),
+                "README.md" to """
+# Devs Code — UI Design System & Component Library
+
+Набор красивых UI-компонентов для Jetpack Compose: Glassmorphism карточки, неоновые градиентные кнопки, цветовая палитра и темы.
+""".trimIndent()
+            )
+            else -> listOf(
+                "src/Main.kt" to """
+package com.devscode.app
+
+fun main() {
+    println("Hello from Devs Code Template!")
+}
+""".trimIndent(),
+                "README.md" to "# $templateKey Template\n\nСгенерировано в Devs Code."
+            )
+        }
+    }
+
+    /**
+     * Exports a template directly to a SAF Uri as a ZIP file.
+     */
+    suspend fun exportTemplateToZipUri(
+        context: Context,
+        uri: Uri,
+        title: String,
+        description: String,
+        files: List<Pair<String, String>>
+    ) = withContext(Dispatchers.IO) {
+        try {
+            context.contentResolver.openOutputStream(uri)?.use { os ->
+                writeTemplateZip(title, description, files, os)
+            }
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, "ZIP-архив шаблона сохранён на диск!", Toast.LENGTH_LONG).show()
+            }
+        } catch (e: Exception) {
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, "Ошибка сохранения ZIP: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    /**
      * Generates a comprehensive README.md for the project.
      */
     fun generateReadme(project: ProjectEntity, files: List<ProjectFileEntity>): String {

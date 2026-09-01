@@ -1,5 +1,9 @@
 package com.example.ui.screens.generator
 
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,11 +20,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -29,9 +36,11 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -47,6 +56,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -65,7 +75,30 @@ fun AppGeneratorScreen(
     viewModel: AppGeneratorViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
     var appNameInput by remember { mutableStateOf("MyAwesomeApp") }
+    var pendingExportTemplateKey by remember { mutableStateOf<String?>(null) }
+    var pendingExportProjectId by remember { mutableStateOf<Long?>(null) }
+
+    // SAF Document Creator launcher for ZIP export
+    val exportZipLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/zip")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            val templateKey = pendingExportTemplateKey
+            val pId = pendingExportProjectId
+            if (pId != null) {
+                viewModel.exportCreatedProjectToZip(context, pId, uri)
+            } else if (templateKey != null) {
+                viewModel.exportPresetTemplateToZip(context, templateKey, uri)
+            } else {
+                // Export based on appNameInput
+                viewModel.exportPresetTemplateToZip(context, appNameInput, uri)
+            }
+        }
+        pendingExportTemplateKey = null
+        pendingExportProjectId = null
+    }
 
     val presets = listOf(
         "Android" to "Создай полноценное Android-приложение на Kotlin с использованием Jetpack Compose, ViewModel, Clean Architecture и Room database.",
@@ -95,6 +128,17 @@ fun AppGeneratorScreen(
                 navigationIcon = {
                     IconButton(onClick = onOpenDrawer, modifier = Modifier.testTag("generator_drawer_btn")) {
                         Icon(Icons.Default.Menu, contentDescription = "Меню")
+                    }
+                },
+                actions = {
+                    IconButton(
+                        onClick = {
+                            pendingExportTemplateKey = "android"
+                            pendingExportProjectId = null
+                            exportZipLauncher.launch("Android_Template.zip")
+                        }
+                    ) {
+                        Icon(Icons.Default.Archive, contentDescription = "Экспорт ZIP шаблона", tint = NeonCyan)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -132,9 +176,50 @@ fun AppGeneratorScreen(
                 }
             }
 
+            // Quick Template ZIP Download Bar
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Download, contentDescription = null, tint = EmeraldGreen, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Экспорт готовых шаблонов в ZIP (на устройство):",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf("Android", "iOS", "UI").forEach { key ->
+                            OutlinedButton(
+                                onClick = {
+                                    pendingExportTemplateKey = key.lowercase()
+                                    pendingExportProjectId = null
+                                    exportZipLauncher.launch("DevsCode_${key}_Template.zip")
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) {
+                                Icon(Icons.Default.Archive, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("ZIP $key", style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+                    }
+                }
+            }
+
             // Presets
             Text(
-                text = "Быстрые шаблоны:",
+                text = "Быстрые шаблоны генератора:",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -204,6 +289,7 @@ fun AppGeneratorScreen(
 
             // Project Creation Banner if already created
             if (uiState.isProjectCreated && uiState.generatedProjectId != null) {
+                val pId = uiState.generatedProjectId!!
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
@@ -224,8 +310,38 @@ fun AppGeneratorScreen(
                             style = MaterialTheme.typography.bodySmall
                         )
                         Spacer(modifier = Modifier.height(12.dp))
+                        
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(
+                                onClick = {
+                                    pendingExportProjectId = pId
+                                    pendingExportTemplateKey = null
+                                    exportZipLauncher.launch("${uiState.generatedProjectName ?: "Project"}.zip")
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Default.Archive, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Экспорт в ZIP", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            OutlinedButton(
+                                onClick = { viewModel.shareCreatedProjectZip(context, pId) },
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Поделиться", fontSize = 13.sp)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
                         Button(
-                            onClick = { onOpenProject(uiState.generatedProjectId!!) },
+                            onClick = { onOpenProject(pId) },
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -281,6 +397,22 @@ fun AppGeneratorScreen(
                             Icon(Icons.Default.AutoAwesome, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Сгенерировать проект и файлы в Room", fontWeight = FontWeight.Bold)
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        OutlinedButton(
+                            onClick = {
+                                pendingExportTemplateKey = "android"
+                                pendingExportProjectId = null
+                                exportZipLauncher.launch("${appNameInput.ifBlank { "Project" }}_Template.zip")
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.Archive, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Экспортировать исходный код в ZIP на диск")
                         }
                     }
                 }

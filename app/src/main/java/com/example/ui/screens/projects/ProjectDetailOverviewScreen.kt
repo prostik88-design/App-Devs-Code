@@ -1,6 +1,9 @@
 package com.example.ui.screens.projects
 
+import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,12 +27,14 @@ import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Unarchive
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -86,6 +91,14 @@ fun ProjectDetailOverviewScreen(
     val context = LocalContext.current
     val dateFormat = remember { SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale.getDefault()) }
 
+    val createZipLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/zip")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            viewModel.exportProjectToZipUri(context, projectId, uri)
+        }
+    }
+
     LaunchedEffect(projectId) {
         viewModel.loadProject(projectId)
     }
@@ -120,13 +133,20 @@ fun ProjectDetailOverviewScreen(
                 actions = {
                     IconButton(
                         onClick = {
+                            val defaultName = "${project?.name ?: "project"}.zip"
+                            createZipLauncher.launch(defaultName)
+                        }
+                    ) {
+                        Icon(Icons.Default.FolderZip, contentDescription = "Экспорт ZIP в память устройства", tint = NeonCyan)
+                    }
+                    IconButton(
+                        onClick = {
                             if (project != null) {
-                                val markdown = ProjectExportUtils.generateProjectMarkdown(project, files)
-                                ProjectExportUtils.shareText(context, project.name, markdown)
+                                viewModel.shareProjectZip(context, projectId)
                             }
                         }
                     ) {
-                        Icon(Icons.Default.Share, contentDescription = "Поделиться проектом")
+                        Icon(Icons.Default.Share, contentDescription = "Поделиться ZIP архивом")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -208,6 +228,54 @@ fun ProjectDetailOverviewScreen(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text("Статус", style = MaterialTheme.typography.bodySmall, color = TextSecondaryDark)
                                     Text(if (project.isArchived) "В архиве" else "Активен", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = if (project.isArchived) TextSecondaryDark else EmeraldGreen)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Export & Storage Action Card
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.FolderZip, contentDescription = null, tint = EmeraldGreen, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Экспорт проекта в память устройства", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "Сохраните проект со всеми файлами в чистом виде (без секретов) в ZIP-архив на телефон.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextSecondaryDark
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Button(
+                                    onClick = {
+                                        createZipLauncher.launch("${project.name}.zip")
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.weight(1f).height(44.dp)
+                                ) {
+                                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Сохранить ZIP", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                }
+
+                                OutlinedButton(
+                                    onClick = { viewModel.shareProjectZip(context, projectId) },
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.weight(1f).height(44.dp)
+                                ) {
+                                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Поделиться ZIP", fontSize = 13.sp)
                                 }
                             }
                         }
